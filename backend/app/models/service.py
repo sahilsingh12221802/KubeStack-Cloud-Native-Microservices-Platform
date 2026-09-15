@@ -63,5 +63,11 @@ class Service(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
-
+    
     project = relationship("Project", back_populates="services")
+    
+    deployments = relationship(
+        "Deployment",
+        back_populates="service",
+        cascade="all, delete-orphan",
+    )

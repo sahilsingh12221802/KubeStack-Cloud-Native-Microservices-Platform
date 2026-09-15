@@ -7,7 +7,9 @@ from app.database import Base, engine
 from app.models.project import Project
 from app.api.projects import router as projects_router
 from app.api.services import router as services_router
+from app.api.deployments import router as deployments_router
 from app.models.service import Service
+from app.models.deployment import Deployment
 
 
 @asynccontextmanager
@@ -25,6 +27,7 @@ app = FastAPI(
 
 app.include_router(projects_router)
 app.include_router(services_router)
+app.include_router(deployments_router)
 
 @app.get("/")
 def root():
