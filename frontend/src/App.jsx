@@ -1,301 +1,367 @@
-
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Boxes,
   CheckCircle2,
-  ChevronRight,
   Cloud,
   GitBranch,
+  Layers3,
   LayoutDashboard,
-  Settings,
+  RefreshCw,
   Server,
-  ShieldCheck,
-  Terminal,
-  Users,
+  Settings,
+  TerminalSquare,
+  XCircle,
 } from "lucide-react";
 
-const services = [
-  {
-    name: "Project API",
-    description: "Project and team management",
-    version: "v0.1.0",
-    status: "Healthy",
-    uptime: "99.99%",
-  },
-  {
-    name: "Service Registry",
-    description: "Service discovery and ownership",
-    version: "v0.1.0",
-    status: "Healthy",
-    uptime: "99.98%",
-  },
-  {
-    name: "Deployment API",
-    description: "Deployment history and releases",
-    version: "v0.1.0",
-    status: "Healthy",
-    uptime: "99.99%",
-  },
-];
+import {
+  getDeployments,
+  getProjects,
+  getServices,
+} from "./services/api";
 
 function App() {
+  const [projects, setProjects] = useState([]);
+  const [services, setServices] = useState([]);
+  const [deployments, setDeployments] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const [projectsData, servicesData, deploymentsData] =
+        await Promise.all([
+          getProjects(),
+          getServices(),
+          getDeployments(),
+        ]);
+
+      setProjects(projectsData);
+      setServices(servicesData);
+      setDeployments(deploymentsData);
+    } catch (err) {
+      console.error(err);
+      setError(
+        "Unable to load dashboard data. Make sure the FastAPI backend is running."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const successfulDeployments = useMemo(
+    () =>
+      deployments.filter(
+        (deployment) => deployment.status === "successful"
+      ).length,
+    [deployments]
+  );
+
+  const activeServices = useMemo(
+    () => services.filter((service) => service.status === "active").length,
+    [services]
+  );
+
+  const stats = [
+    {
+      label: "Total Projects",
+      value: projects.length,
+      icon: Boxes,
+      description: "Registered projects",
+    },
+    {
+      label: "Total Services",
+      value: services.length,
+      icon: Server,
+      description: "Registered services",
+    },
+    {
+      label: "Deployments",
+      value: deployments.length,
+      icon: GitBranch,
+      description: "Recorded deployments",
+    },
+    {
+      label: "Successful",
+      value: successfulDeployments,
+      icon: CheckCircle2,
+      description: "Successful deployments",
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="flex min-h-screen">
-        {/* Sidebar */}
-        <aside className="hidden w-64 shrink-0 border-r border-slate-800 bg-slate-900/60 p-5 md:block">
+        <aside className="hidden w-64 border-r border-slate-800 bg-slate-900/80 p-5 lg:block">
           <div className="mb-10 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-400">
+            <div className="rounded-xl bg-cyan-500/15 p-2 text-cyan-400">
               <Cloud size={22} />
             </div>
+
             <div>
               <h1 className="text-lg font-bold">KubeStack</h1>
-              <p className="text-xs text-slate-500">Developer Platform</p>
+              <p className="text-xs text-slate-400">
+                Cloud-Native Platform
+              </p>
             </div>
           </div>
 
           <nav className="space-y-2">
-            <NavItem
-              icon={<LayoutDashboard size={18} />}
-              label="Overview"
-              active
-            />
-            <NavItem
-              icon={<Boxes size={18} />}
-              label="Projects"
-            />
-            <NavItem
-              icon={<Server size={18} />}
-              label="Services"
-            />
-            <NavItem
-              icon={<GitBranch size={18} />}
-              label="Deployments"
-            />
-            <NavItem
-              icon={<Activity size={18} />}
-              label="Monitoring"
-            />
+            <div className="flex items-center gap-3 rounded-lg bg-cyan-500/10 px-3 py-2 text-cyan-400">
+              <LayoutDashboard size={18} />
+              Dashboard
+            </div>
+
+            <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-400">
+              <Boxes size={18} />
+              Projects
+            </div>
+
+            <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-400">
+              <Server size={18} />
+              Services
+            </div>
+
+            <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-400">
+              <GitBranch size={18} />
+              Deployments
+            </div>
+
+            <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-400">
+              <Activity size={18} />
+              Monitoring
+            </div>
           </nav>
 
           <div className="mt-10 border-t border-slate-800 pt-5">
-            <NavItem
-              icon={<Users size={18} />}
-              label="Team"
-            />
-            <NavItem
-              icon={<Settings size={18} />}
-              label="Settings"
-            />
-          </div>
-
-          <div className="mt-10 rounded-xl border border-slate-800 bg-slate-950 p-4">
-            <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-              <ShieldCheck size={16} className="text-emerald-400" />
-              Environment
+            <div className="flex items-center gap-3 px-3 py-2 text-slate-400">
+              <Settings size={18} />
+              Settings
             </div>
-            <p className="text-sm text-slate-400">Development</p>
-            <div className="mt-3 flex items-center gap-2 text-xs text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              All systems operational
+
+            <div className="flex items-center gap-3 px-3 py-2 text-slate-400">
+              <TerminalSquare size={18} />
+              System Logs
             </div>
           </div>
         </aside>
 
-        {/* Main content */}
         <main className="min-w-0 flex-1">
-          <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 px-6 py-5 lg:px-10">
+          <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 bg-slate-950/80 px-6 py-5">
             <div>
-              <p className="text-sm text-slate-500">Workspace / Overview</p>
-              <h2 className="mt-1 text-2xl font-semibold">
-                Good evening, Sahil
-              </h2>
+              <p className="text-sm text-slate-400">Engineering Workspace</p>
+              <h2 className="text-2xl font-bold">Platform Dashboard</h2>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="hidden items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-400 sm:flex">
-                <Terminal size={15} />
-                Local Environment
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-cyan-500/20 font-semibold text-cyan-300">
-                SS
-              </div>
-            </div>
+            <button
+              onClick={loadDashboardData}
+              disabled={loading}
+              className="flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-cyan-400 hover:text-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw size={16} />
+              Refresh
+            </button>
           </header>
 
-          <div className="space-y-8 p-6 lg:p-10">
-            {/* Welcome */}
-            <section>
-              <p className="mb-2 text-sm font-medium text-cyan-400">
-                PLATFORM OVERVIEW
-              </p>
-              <h3 className="text-3xl font-bold tracking-tight">
-                Your infrastructure, simplified.
-              </h3>
-              <p className="mt-2 max-w-2xl text-slate-400">
-                Manage projects, services, deployments, and operational
-                health from one developer platform.
-              </p>
-            </section>
-
-            {/* Stats */}
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard
-                icon={<Boxes size={20} />}
-                label="Total Projects"
-                value="1"
-                note="Active workspace"
-              />
-              <StatCard
-                icon={<Server size={20} />}
-                label="Registered Services"
-                value="3"
-                note="Development environment"
-              />
-              <StatCard
-                icon={<CheckCircle2 size={20} />}
-                label="Healthy Services"
-                value="3 / 3"
-                note="100% availability"
-                positive
-              />
-              <StatCard
-                icon={<GitBranch size={20} />}
-                label="Deployments"
-                value="0"
-                note="No deployments yet"
-              />
-            </section>
-
-            {/* Project */}
-            <section>
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <h3 className="text-lg font-semibold">Your Projects</h3>
-                <button className="flex items-center gap-1 text-sm text-cyan-400 hover:text-cyan-300">
-                  View all <ChevronRight size={16} />
-                </button>
+          <section className="space-y-6 p-6">
+            {error && (
+              <div className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-300">
+                <XCircle className="mt-0.5 shrink-0" size={20} />
+                <p>{error}</p>
               </div>
+            )}
 
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-400">
-                      <Cloud size={24} />
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {stats.map((stat) => {
+                const Icon = stat.icon;
+
+                return (
+                  <div
+                    key={stat.label}
+                    className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-sm text-slate-400">{stat.label}</p>
+                      <Icon className="text-cyan-400" size={20} />
                     </div>
-                    <div>
-                      <h4 className="font-semibold">KubeStack Platform</h4>
-                      <p className="text-sm text-slate-500">
-                        Cloud-native developer platform
-                      </p>
-                    </div>
+
+                    <p className="text-3xl font-bold">
+                      {loading ? "—" : stat.value}
+                    </p>
+
+                    <p className="mt-2 text-xs text-slate-500">
+                      {stat.description}
+                    </p>
                   </div>
-                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">
-                    Active
+                );
+              })}
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-2">
+              <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+                <div className="mb-5 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">Registered Services</h3>
+                    <p className="text-sm text-slate-400">
+                      Services connected to KubeStack
+                    </p>
+                  </div>
+
+                  <span className="rounded-full bg-cyan-500/10 px-3 py-1 text-xs text-cyan-400">
+                    {activeServices} active
                   </span>
                 </div>
 
-                <div className="mt-5 grid gap-4 border-t border-slate-800 pt-5 sm:grid-cols-3">
-                  <Info label="Owner" value="Sahil Singh" />
-                  <Info label="Environment" value="Development" />
-                  <Info label="Version" value="v0.1.0" />
-                </div>
-              </div>
-            </section>
+                {loading ? (
+                  <p className="text-sm text-slate-400">
+                    Loading services...
+                  </p>
+                ) : services.length === 0 ? (
+                  <p className="text-sm text-slate-400">
+                    No services registered yet.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {services.map((service) => (
+                      <div
+                        key={service.id}
+                        className="rounded-xl border border-slate-800 bg-slate-950/60 p-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <h4 className="font-medium">{service.name}</h4>
+                            <p className="mt-1 text-sm text-slate-400">
+                              {service.description || "No description provided"}
+                            </p>
+                          </div>
 
-            {/* Services */}
-            <section>
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <h3 className="text-lg font-semibold">Registered Services</h3>
-                <button className="text-sm text-cyan-400 hover:text-cyan-300">
-                  Manage services
-                </button>
-              </div>
+                          <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-400">
+                            {service.status}
+                          </span>
+                        </div>
 
-              <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50">
-                <div className="hidden grid-cols-4 gap-4 border-b border-slate-800 px-5 py-3 text-xs uppercase tracking-wider text-slate-500 sm:grid">
-                  <span className="col-span-2">Service</span>
-                  <span>Version</span>
-                  <span>Status</span>
-                </div>
-
-                {services.map((service) => (
-                  <div
-                    key={service.name}
-                    className="grid gap-3 border-b border-slate-800 px-5 py-4 last:border-b-0 sm:grid-cols-4 sm:items-center sm:gap-4"
-                  >
-                    <div className="flex items-center gap-3 sm:col-span-2">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-slate-300">
-                        <Server size={17} />
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-400">
+                          <span className="rounded-md bg-slate-800 px-2 py-1">
+                            {service.technology}
+                          </span>
+                          <span className="rounded-md bg-slate-800 px-2 py-1">
+                            {service.environment}
+                          </span>
+                          <span className="rounded-md bg-slate-800 px-2 py-1">
+                            {service.version}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">{service.name}</p>
-                        <p className="text-xs text-slate-500">
-                          {service.description}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-sm text-slate-400">
-                      {service.version}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-emerald-400">
-                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                      {service.status}
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
+              </section>
+
+              <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+                <div className="mb-5">
+                  <h3 className="text-lg font-semibold">Recent Deployments</h3>
+                  <p className="text-sm text-slate-400">
+                    Latest deployment activity
+                  </p>
+                </div>
+
+                {loading ? (
+                  <p className="text-sm text-slate-400">
+                    Loading deployments...
+                  </p>
+                ) : deployments.length === 0 ? (
+                  <p className="text-sm text-slate-400">
+                    No deployments recorded yet.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {deployments.slice(0, 5).map((deployment) => (
+                      <div
+                        key={deployment.id}
+                        className="rounded-xl border border-slate-800 bg-slate-950/60 p-4"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <h4 className="font-medium">
+                              Deployment #{deployment.id}
+                            </h4>
+                            <p className="mt-1 text-sm text-slate-400">
+                              Service #{deployment.service_id}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs ${
+                              deployment.status === "successful"
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : deployment.status === "failed"
+                                ? "bg-red-500/10 text-red-400"
+                                : "bg-amber-500/10 text-amber-400"
+                            }`}
+                          >
+                            {deployment.status}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-400">
+                          <span className="rounded-md bg-slate-800 px-2 py-1">
+                            {deployment.version}
+                          </span>
+                          <span className="rounded-md bg-slate-800 px-2 py-1">
+                            {deployment.environment}
+                          </span>
+                          {deployment.image_tag && (
+                            <span className="rounded-md bg-slate-800 px-2 py-1">
+                              {deployment.image_tag}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+
+            <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
+              <h3 className="text-lg font-semibold">Platform Status</h3>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl bg-slate-950/60 p-4">
+                  <p className="text-sm text-slate-400">Backend API</p>
+                  <p className="mt-2 flex items-center gap-2 font-medium text-emerald-400">
+                    <CheckCircle2 size={16} />
+                    Connected
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-slate-950/60 p-4">
+                  <p className="text-sm text-slate-400">Database</p>
+                  <p className="mt-2 flex items-center gap-2 font-medium text-emerald-400">
+                    <CheckCircle2 size={16} />
+                    PostgreSQL
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-slate-950/60 p-4">
+                  <p className="text-sm text-slate-400">Active Services</p>
+                  <p className="mt-2 font-medium text-cyan-400">
+                    {loading ? "—" : activeServices}
+                  </p>
+                </div>
               </div>
             </section>
-
-            {/* Footer status */}
-            <footer className="flex flex-wrap items-center gap-2 border-t border-slate-800 pt-5 text-xs text-slate-500">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              KubeStack API connected locally
-              <span className="mx-1">·</span>
-              v0.1.0
-            </footer>
-          </div>
+          </section>
         </main>
       </div>
-    </div>
-  );
-}
-
-function NavItem({ icon, label, active = false }) {
-  return (
-    <div
-      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm ${
-        active
-          ? "bg-cyan-500/10 text-cyan-400"
-          : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-      }`}
-    >
-      {icon}
-      {label}
-    </div>
-  );
-}
-
-function StatCard({ icon, label, value, note, positive = false }) {
-  return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="text-slate-400">{icon}</div>
-        {positive && (
-          <span className="text-xs text-emerald-400">Healthy</span>
-        )}
-      </div>
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-1 text-3xl font-bold">{value}</p>
-      <p className="mt-2 text-xs text-slate-500">{note}</p>
-    </div>
-  );
-}
-
-function Info({ label, value }) {
-  return (
-    <div>
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-medium text-slate-300">{value}</p>
     </div>
   );
 }
