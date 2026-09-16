@@ -66,6 +66,29 @@ services:
     depends_on:
       - prometheus
 
+  backend:
+    build:
+      context: ./backend
+    container_name: kubestack-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg2://kubestack:kubestack_dev_password@postgres:5432/kubestack
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: kubestack-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
 volumes:
   postgres_data:
   prometheus_data:
