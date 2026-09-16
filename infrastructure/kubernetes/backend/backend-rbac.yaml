@@ -1,0 +1,26 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kubestack-backend-role
+  namespace: kubestack
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kubestack-backend-rolebinding
+  namespace: kubestack
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: kubestack
+roleRef:
+  kind: Role
+  name: kubestack-backend-role
+  apiGroup: rbac.authorization.k8s.io

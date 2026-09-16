@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from kubernetes import client, config
+from kubernetes.client.rest import ApiException
+
 from app.database import get_db
 from app.models.deployment import Deployment
 from app.models.service import Service
@@ -14,6 +17,84 @@ router = APIRouter(
     prefix="/api/deployments",
     tags=["Deployments"],
 )
+
+KUBERNETES_NAMESPACE = "kubestack"
+
+
+def get_kubernetes_apps_api():
+    try:
+        config.load_incluster_config()
+    except config.ConfigException:
+        config.load_kube_config()
+
+    return client.AppsV1Api()
+
+
+def create_kubernetes_deployment(
+    service: Service,
+    deployment: Deployment,
+):
+    if not deployment.image_tag:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="image_tag is required to create a Kubernetes deployment",
+        )
+
+    apps_api = get_kubernetes_apps_api()
+
+    deployment_name = (
+        f"{service.name}-{deployment.environment}"
+        .lower()
+        .replace("_", "-")
+        .replace(" ", "-")
+    )
+
+    container = client.V1Container(
+        name=service.name.lower().replace("_", "-").replace(" ", "-"),
+        image=deployment.image_tag,
+        ports=[
+            client.V1ContainerPort(container_port=8000),
+        ],
+    )
+
+    pod_template = client.V1PodTemplateSpec(
+        metadata=client.V1ObjectMeta(
+            labels={
+                "app": deployment_name,
+                "managed-by": "kubestack",
+            }
+        ),
+        spec=client.V1PodSpec(
+            containers=[container]
+        ),
+    )
+
+    deployment_spec = client.V1DeploymentSpec(
+        replicas=1,
+        selector=client.V1LabelSelector(
+            match_labels={"app": deployment_name}
+        ),
+        template=pod_template,
+    )
+
+    kubernetes_deployment = client.V1Deployment(
+        metadata=client.V1ObjectMeta(
+            name=deployment_name,
+            labels={"managed-by": "kubestack"},
+        ),
+        spec=deployment_spec,
+    )
+
+    try:
+        return apps_api.create_namespaced_deployment(
+            namespace=KUBERNETES_NAMESPACE,
+            body=kubernetes_deployment,
+        )
+    except ApiException as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Kubernetes API error: {error.reason}",
+        )
 
 
 @router.post(
@@ -40,6 +121,21 @@ def create_deployment(
     deployment = Deployment(**deployment_data.model_dump())
 
     db.add(deployment)
+    db.commit()
+    db.refresh(deployment)
+
+    try:
+        create_kubernetes_deployment(service, deployment)
+
+        deployment.status = "successful"
+        deployment.logs = "Kubernetes Deployment created successfully."
+
+    except HTTPException as error:
+        deployment.status = "failed"
+        deployment.logs = str(error.detail)
+        db.commit()
+        raise error
+
     db.commit()
     db.refresh(deployment)
 
