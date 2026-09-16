@@ -13,13 +13,10 @@ import {
   XCircle,
 } from "lucide-react";
 
-import {
-  getDeployments,
-  getProjects,
-  getServices,
-} from "./services/api";
+import { getDeployments, getProjects, getServices } from "./services/api";
 
 import Projects from "./pages/Projects";
+import Services from "./pages/Services";
 
 function App() {
   const [projects, setProjects] = useState([]);
@@ -35,11 +32,7 @@ function App() {
       setLoading(true);
       setError("");
 
-      const [
-        projectsData,
-        servicesData,
-        deploymentsData,
-      ] = await Promise.all([
+      const [projectsData, servicesData, deploymentsData] = await Promise.all([
         getProjects(),
         getServices(),
         getDeployments(),
@@ -52,7 +45,7 @@ function App() {
       console.error(err);
 
       setError(
-        "Unable to load dashboard data. Make sure the FastAPI backend is running."
+        "Unable to load dashboard data. Make sure the FastAPI backend is running.",
       );
     } finally {
       setLoading(false);
@@ -65,18 +58,14 @@ function App() {
 
   const successfulDeployments = useMemo(
     () =>
-      deployments.filter(
-        (deployment) => deployment.status === "successful"
-      ).length,
-    [deployments]
+      deployments.filter((deployment) => deployment.status === "successful")
+        .length,
+    [deployments],
   );
 
   const activeServices = useMemo(
-    () =>
-      services.filter(
-        (service) => service.status === "active"
-      ).length,
-    [services]
+    () => services.filter((service) => service.status === "active").length,
+    [services],
   );
 
   const stats = [
@@ -118,6 +107,7 @@ function App() {
 
   const isDashboard = activePage === "dashboard";
   const isProjects = activePage === "projects";
+  const isServices = activePage === "services";
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -131,9 +121,7 @@ function App() {
 
             <div>
               <h1 className="text-lg font-bold">KubeStack</h1>
-              <p className="text-xs text-slate-400">
-                Cloud-Native Platform
-              </p>
+              <p className="text-xs text-slate-400">Cloud-Native Platform</p>
             </div>
           </div>
 
@@ -238,13 +226,9 @@ function App() {
           {/* Header */}
           <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 bg-slate-950/80 px-6 py-5">
             <div>
-              <p className="text-sm text-slate-400">
-                Engineering Workspace
-              </p>
+              <p className="text-sm text-slate-400">Engineering Workspace</p>
 
-              <h2 className="text-2xl font-bold">
-                {pageTitles[activePage]}
-              </h2>
+              <h2 className="text-2xl font-bold">{pageTitles[activePage]}</h2>
             </div>
 
             {isDashboard && (
@@ -264,6 +248,10 @@ function App() {
             <section className="p-6">
               <Projects />
             </section>
+          ) : isServices ? (
+            <section className="p-6">
+              <Services />
+            </section>
           ) : (
             /* Dashboard and Placeholder Pages */
             <section className="space-y-6 p-6">
@@ -272,10 +260,7 @@ function App() {
                   {/* Error Message */}
                   {error && (
                     <div className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-300">
-                      <XCircle
-                        className="mt-0.5 shrink-0"
-                        size={20}
-                      />
+                      <XCircle className="mt-0.5 shrink-0" size={20} />
 
                       <p>{error}</p>
                     </div>
@@ -296,10 +281,7 @@ function App() {
                               {stat.label}
                             </p>
 
-                            <Icon
-                              className="text-cyan-400"
-                              size={20}
-                            />
+                            <Icon className="text-cyan-400" size={20} />
                           </div>
 
                           <p className="text-3xl font-bold">
@@ -407,56 +389,52 @@ function App() {
                         </p>
                       ) : (
                         <div className="space-y-3">
-                          {deployments
-                            .slice(0, 5)
-                            .map((deployment) => (
-                              <div
-                                key={deployment.id}
-                                className="rounded-xl border border-slate-800 bg-slate-950/60 p-4"
-                              >
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                  <div>
-                                    <h4 className="font-medium">
-                                      Deployment #{deployment.id}
-                                    </h4>
+                          {deployments.slice(0, 5).map((deployment) => (
+                            <div
+                              key={deployment.id}
+                              className="rounded-xl border border-slate-800 bg-slate-950/60 p-4"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <h4 className="font-medium">
+                                    Deployment #{deployment.id}
+                                  </h4>
 
-                                    <p className="mt-1 text-sm text-slate-400">
-                                      Service #{deployment.service_id}
-                                    </p>
-                                  </div>
+                                  <p className="mt-1 text-sm text-slate-400">
+                                    Service #{deployment.service_id}
+                                  </p>
+                                </div>
 
-                                  <span
-                                    className={`rounded-full px-2.5 py-1 text-xs ${
-                                      deployment.status ===
-                                      "successful"
-                                        ? "bg-emerald-500/10 text-emerald-400"
-                                        : deployment.status ===
-                                          "failed"
+                                <span
+                                  className={`rounded-full px-2.5 py-1 text-xs ${
+                                    deployment.status === "successful"
+                                      ? "bg-emerald-500/10 text-emerald-400"
+                                      : deployment.status === "failed"
                                         ? "bg-red-500/10 text-red-400"
                                         : "bg-amber-500/10 text-amber-400"
-                                    }`}
-                                  >
-                                    {deployment.status}
-                                  </span>
-                                </div>
-
-                                <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-400">
-                                  <span className="rounded-md bg-slate-800 px-2 py-1">
-                                    {deployment.version}
-                                  </span>
-
-                                  <span className="rounded-md bg-slate-800 px-2 py-1">
-                                    {deployment.environment}
-                                  </span>
-
-                                  {deployment.image_tag && (
-                                    <span className="rounded-md bg-slate-800 px-2 py-1">
-                                      {deployment.image_tag}
-                                    </span>
-                                  )}
-                                </div>
+                                  }`}
+                                >
+                                  {deployment.status}
+                                </span>
                               </div>
-                            ))}
+
+                              <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-400">
+                                <span className="rounded-md bg-slate-800 px-2 py-1">
+                                  {deployment.version}
+                                </span>
+
+                                <span className="rounded-md bg-slate-800 px-2 py-1">
+                                  {deployment.environment}
+                                </span>
+
+                                {deployment.image_tag && (
+                                  <span className="rounded-md bg-slate-800 px-2 py-1">
+                                    {deployment.image_tag}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </section>
@@ -464,15 +442,11 @@ function App() {
 
                   {/* Platform Status */}
                   <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5">
-                    <h3 className="text-lg font-semibold">
-                      Platform Status
-                    </h3>
+                    <h3 className="text-lg font-semibold">Platform Status</h3>
 
                     <div className="mt-4 grid gap-3 sm:grid-cols-3">
                       <div className="rounded-xl bg-slate-950/60 p-4">
-                        <p className="text-sm text-slate-400">
-                          Backend API
-                        </p>
+                        <p className="text-sm text-slate-400">Backend API</p>
 
                         <p className="mt-2 flex items-center gap-2 font-medium text-emerald-400">
                           <CheckCircle2 size={16} />
@@ -481,9 +455,7 @@ function App() {
                       </div>
 
                       <div className="rounded-xl bg-slate-950/60 p-4">
-                        <p className="text-sm text-slate-400">
-                          Database
-                        </p>
+                        <p className="text-sm text-slate-400">Database</p>
 
                         <p className="mt-2 flex items-center gap-2 font-medium text-emerald-400">
                           <CheckCircle2 size={16} />
@@ -511,8 +483,8 @@ function App() {
                   </h3>
 
                   <p className="mt-2 text-sm text-slate-400">
-                    This section will be implemented in a future
-                    KubeStack milestone.
+                    This section will be implemented in a future KubeStack
+                    milestone.
                   </p>
 
                   <button
