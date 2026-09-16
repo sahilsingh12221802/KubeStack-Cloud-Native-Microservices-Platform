@@ -19,6 +19,9 @@ function Deployments() {
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [selectedDeployment, setSelectedDeployment] = useState(null);
+  const [liveDetails, setLiveDetails] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [detailsError, setDetailsError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -130,6 +133,27 @@ function Deployments() {
 
   const formatStatus = (status) => {
     return status.replace("_", " ");
+  };
+
+  const loadLiveDetails = async (deploymentId) => {
+    try {
+      setLoadingDetails(true);
+      setDetailsError("");
+
+      const response = await fetch(`/api/deployments/${deploymentId}/details`);
+
+      if (!response.ok) {
+        throw new Error("Failed to load live Kubernetes details");
+      }
+
+      const data = await response.json();
+      setLiveDetails(data);
+    } catch (error) {
+      console.error("Live details error:", error);
+      setDetailsError(error.message);
+    } finally {
+      setLoadingDetails(false);
+    }
   };
 
   return (
@@ -276,7 +300,10 @@ function Deployments() {
                 </div>
 
                 <button
-                  onClick={() => setSelectedDeployment(deployment)}
+                  onClick={() => {
+                    setSelectedDeployment(deployment);
+                    loadLiveDetails(deployment.id);
+                  }}
                   className="rounded-lg border border-cyan-500/30 px-3 py-1.5 text-xs font-medium text-cyan-400 transition hover:bg-cyan-500/10"
                 >
                   View Details
@@ -552,6 +579,156 @@ function Deployments() {
               <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-slate-300">
                 {selectedDeployment.logs || "No deployment logs available."}
               </pre>
+            </div>
+
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold mb-3">
+                Live Kubernetes Details
+              </h3>
+
+              {loadingDetails && (
+                <p className="text-sm text-gray-500">
+                  Loading live Kubernetes information...
+                </p>
+              )}
+
+              {detailsError && (
+                <p className="text-sm text-red-500">{detailsError}</p>
+              )}
+
+              {liveDetails && !loadingDetails && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-sm text-gray-500">
+                        Kubernetes Deployment
+                      </p>
+                      <p className="font-medium">
+                        {liveDetails.deployment_name || "N/A"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-gray-500">Namespace</p>
+                      <p className="font-medium">
+                        {liveDetails.kubernetes?.namespace || "N/A"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-gray-500">Desired Replicas</p>
+                      <p className="font-medium">
+                        {liveDetails.kubernetes?.replicas ?? 0}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-gray-500">Ready Replicas</p>
+                      <p className="font-medium">
+                        {liveDetails.kubernetes?.ready_replicas ?? 0}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-gray-500">
+                        Available Replicas
+                      </p>
+                      <p className="font-medium">
+                        {liveDetails.kubernetes?.available_replicas ?? 0}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-gray-500">Updated Replicas</p>
+                      <p className="font-medium">
+                        {liveDetails.kubernetes?.updated_replicas ?? 0}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold mb-2">Pods</h4>
+
+                    {liveDetails.kubernetes?.pods?.length > 0 ? (
+                      <div className="space-y-3">
+                        {liveDetails.kubernetes.pods.map((pod) => (
+                          <div key={pod.name} className="rounded-lg border p-3">
+                            <p className="font-medium">{pod.name}</p>
+
+                            <div className="text-sm text-gray-500 mt-2 space-y-1">
+                              <p>
+                                Phase:{" "}
+                                <span className="text-gray-300">
+                                  {pod.status || "N/A"}
+                                </span>
+                              </p>
+
+                              <p>
+                                Pod IP:{" "}
+                                <span className="text-gray-300">
+                                  {pod.pod_ip || "N/A"}
+                                </span>
+                              </p>
+
+                              <p>
+                                Node:{" "}
+                                <span className="text-gray-300">
+                                  {pod.node_name || "N/A"}
+                                </span>
+                              </p>
+                            </div>
+
+                            {pod.containers?.length > 0 && (
+                              <div className="mt-3">
+                                <p className="text-sm font-medium mb-1">
+                                  Containers
+                                </p>
+
+                                {pod.containers.map((container) => (
+                                  <div
+                                    key={container.name}
+                                    className="text-sm border-t pt-2 mt-2"
+                                  >
+                                    <p>
+                                      <span className="font-medium">Name:</span>{" "}
+                                      {container.name}
+                                    </p>
+
+                                    <p>
+                                      <span className="font-medium">
+                                        Image:
+                                      </span>{" "}
+                                      {container.image || "N/A"}
+                                    </p>
+
+                                    <p>
+                                      <span className="font-medium">
+                                        Ready:
+                                      </span>{" "}
+                                      {container.ready ? "Yes" : "No"}
+                                    </p>
+
+                                    <p>
+                                      <span className="font-medium">
+                                        Restarts:
+                                      </span>{" "}
+                                      {container.restart_count ?? 0}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        No pods found for this deployment.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Close */}

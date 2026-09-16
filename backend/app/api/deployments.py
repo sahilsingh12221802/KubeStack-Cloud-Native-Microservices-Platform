@@ -33,6 +33,13 @@ def get_kubernetes_apps_api():
 
     return client.AppsV1Api()
 
+def get_kubernetes_core_api():
+    try:
+        config.load_incluster_config()
+    except config.ConfigException:
+        config.load_kube_config()
+
+    return client.CoreV1Api()
 
 def create_kubernetes_deployment(
     service: Service,
@@ -270,6 +277,152 @@ def get_deployments(
     return query.order_by(Deployment.created_at.desc()).all()
 
 
+@router.get(
+    "/{deployment_id}/details",
+)
+def get_deployment_details(
+    deployment_id: int,
+    db: Session = Depends(get_db),
+):
+    deployment = (
+        db.query(Deployment)
+        .filter(Deployment.id == deployment_id)
+        .first()
+    )
+
+    if not deployment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Deployment not found",
+        )
+
+    service = (
+        db.query(Service)
+        .filter(Service.id == deployment.service_id)
+        .first()
+    )
+
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service not found",
+        )
+
+    deployment_name = get_deployment_name(service, deployment)
+
+    apps_api = get_kubernetes_apps_api()
+    core_api = get_kubernetes_core_api()
+
+    try:
+        kubernetes_deployment = (
+            apps_api.read_namespaced_deployment(
+                name=deployment_name,
+                namespace=KUBERNETES_NAMESPACE,
+            )
+        )
+
+        pod_list = core_api.list_namespaced_pod(
+            namespace=KUBERNETES_NAMESPACE,
+            label_selector=f"app={deployment_name}",
+        )
+
+        deployment_status = kubernetes_deployment.status
+        deployment_spec = kubernetes_deployment.spec
+
+        pods = []
+
+        for pod in pod_list.items:
+            container_statuses = pod.status.container_statuses or []
+
+            ready_containers = sum(
+                1
+                for container in container_statuses
+                if container.ready
+            )
+
+            total_containers = len(container_statuses)
+
+            pods.append(
+                {
+                    "name": pod.metadata.name,
+                    "status": pod.status.phase,
+                    "pod_ip": pod.status.pod_ip,
+                    "node_name": pod.spec.node_name,
+                    "ready_containers": ready_containers,
+                    "total_containers": total_containers,
+                    "created_at": (
+                        pod.metadata.creation_timestamp.isoformat()
+                        if pod.metadata.creation_timestamp
+                        else None
+                    ),
+                    "containers": [
+                        {
+                            "name": container.name,
+                            "image": container.image,
+                            "ready": next(
+                                (
+                                    item.ready
+                                    for item in container_statuses
+                                    if item.name == container.name
+                                ),
+                                False,
+                            ),
+                            "restart_count": next(
+                                (
+                                    item.restart_count
+                                    for item in container_statuses
+                                    if item.name == container.name
+                                ),
+                                0,
+                            ),
+                        }
+                        for container in pod.spec.containers
+                    ],
+                }
+            )
+
+        return {
+            "deployment_id": deployment.id,
+            "deployment_name": deployment_name,
+            "service_name": service.name,
+            "version": deployment.version,
+            "environment": deployment.environment,
+            "database_status": deployment.status,
+            "image_tag": deployment.image_tag,
+            "deployed_by": deployment.deployed_by,
+            "logs": deployment.logs,
+            "kubernetes": {
+                "namespace": KUBERNETES_NAMESPACE,
+                "replicas": deployment_spec.replicas or 0,
+                "available_replicas": (
+                    deployment_status.available_replicas or 0
+                ),
+                "ready_replicas": (
+                    deployment_status.ready_replicas or 0
+                ),
+                "updated_replicas": (
+                    deployment_status.updated_replicas or 0
+                ),
+                "pods": pods,
+            },
+        }
+
+    except ApiException as error:
+        if error.status == 404:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=(
+                    "Kubernetes Deployment not found: "
+                    f"{deployment_name}"
+                ),
+            )
+
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Kubernetes API error: {error.reason}",
+        )
+        
+        
 @router.get(
     "/{deployment_id}",
     response_model=DeploymentResponse,
