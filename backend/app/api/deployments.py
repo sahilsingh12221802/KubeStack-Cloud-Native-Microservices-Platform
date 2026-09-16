@@ -1,3 +1,5 @@
+import time
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -19,6 +21,8 @@ router = APIRouter(
 )
 
 KUBERNETES_NAMESPACE = "kubestack"
+ROLLOUT_TIMEOUT_SECONDS = 60
+ROLLOUT_CHECK_INTERVAL_SECONDS = 3
 
 
 def get_kubernetes_apps_api():
@@ -49,8 +53,15 @@ def create_kubernetes_deployment(
         .replace(" ", "-")
     )
 
+    container_name = (
+        service.name
+        .lower()
+        .replace("_", "-")
+        .replace(" ", "-")
+    )
+
     container = client.V1Container(
-        name=service.name.lower().replace("_", "-").replace(" ", "-"),
+        name=container_name,
         image=deployment.image_tag,
         ports=[
             client.V1ContainerPort(container_port=8000),
@@ -86,15 +97,81 @@ def create_kubernetes_deployment(
     )
 
     try:
-        return apps_api.create_namespaced_deployment(
-            namespace=KUBERNETES_NAMESPACE,
-            body=kubernetes_deployment,
-        )
+        # If the Deployment already exists, update it instead of failing.
+        try:
+            apps_api.read_namespaced_deployment(
+                name=deployment_name,
+                namespace=KUBERNETES_NAMESPACE,
+            )
+
+            return apps_api.replace_namespaced_deployment(
+                name=deployment_name,
+                namespace=KUBERNETES_NAMESPACE,
+                body=kubernetes_deployment,
+            )
+
+        except ApiException as error:
+            if error.status != 404:
+                raise error
+
+            return apps_api.create_namespaced_deployment(
+                namespace=KUBERNETES_NAMESPACE,
+                body=kubernetes_deployment,
+            )
+
     except ApiException as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Kubernetes API error: {error.reason}",
         )
+
+
+def wait_for_deployment_ready(deployment_name: str):
+    apps_api = get_kubernetes_apps_api()
+    start_time = time.time()
+
+    while time.time() - start_time < ROLLOUT_TIMEOUT_SECONDS:
+        try:
+            kubernetes_deployment = (
+                apps_api.read_namespaced_deployment_status(
+                    name=deployment_name,
+                    namespace=KUBERNETES_NAMESPACE,
+                )
+            )
+
+            status_data = kubernetes_deployment.status
+
+            replicas = status_data.replicas or 0
+            ready_replicas = status_data.ready_replicas or 0
+            available_replicas = status_data.available_replicas or 0
+            updated_replicas = status_data.updated_replicas or 0
+
+            if (
+                replicas >= 1
+                and ready_replicas >= 1
+                and available_replicas >= 1
+                and updated_replicas >= 1
+            ):
+                return True
+
+        except ApiException as error:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Kubernetes rollout check error: {error.reason}",
+            )
+
+        time.sleep(ROLLOUT_CHECK_INTERVAL_SECONDS)
+
+    return False
+
+
+def get_deployment_name(service: Service, deployment: Deployment):
+    return (
+        f"{service.name}-{deployment.environment}"
+        .lower()
+        .replace("_", "-")
+        .replace(" ", "-")
+    )
 
 
 @router.post(
@@ -124,17 +201,52 @@ def create_deployment(
     db.commit()
     db.refresh(deployment)
 
+    deployment_name = get_deployment_name(service, deployment)
+
     try:
+        deployment.status = "in_progress"
+        deployment.logs = "Creating Kubernetes Deployment..."
+        db.commit()
+
         create_kubernetes_deployment(service, deployment)
 
-        deployment.status = "successful"
-        deployment.logs = "Kubernetes Deployment created successfully."
+        deployment.logs = (
+            "Kubernetes Deployment created. "
+            "Waiting for pod readiness..."
+        )
+        db.commit()
+
+        is_ready = wait_for_deployment_ready(deployment_name)
+
+        if is_ready:
+            deployment.status = "successful"
+            deployment.logs = (
+                "Kubernetes Deployment created successfully. "
+                "Pod is ready and available."
+            )
+        else:
+            deployment.status = "failed"
+            deployment.logs = (
+                "Kubernetes Deployment was created, "
+                "but the pod did not become ready within "
+                f"{ROLLOUT_TIMEOUT_SECONDS} seconds."
+            )
 
     except HTTPException as error:
         deployment.status = "failed"
         deployment.logs = str(error.detail)
         db.commit()
         raise error
+
+    except Exception as error:
+        deployment.status = "failed"
+        deployment.logs = f"Deployment error: {str(error)}"
+        db.commit()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Deployment failed",
+        )
 
     db.commit()
     db.refresh(deployment)

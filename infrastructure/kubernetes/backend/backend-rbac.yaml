@@ -6,10 +6,35 @@ metadata:
 rules:
   - apiGroups: ["apps"]
     resources: ["deployments"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      
+  - apiGroups: ["apps"]
+    resources: ["deployments/status"]
+    verbs:
+      - get
+      - watch
+
   - apiGroups: [""]
-    resources: ["pods", "services", "configmaps", "secrets"]
-    verbs: ["get", "list", "watch"]
+    resources: ["pods"]
+    verbs:
+      - get
+      - list
+      - watch
+
+  - apiGroups: [""]
+    resources: ["services", "configmaps", "secrets"]
+    verbs:
+      - get
+      - list
+      - watch
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
