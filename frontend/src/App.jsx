@@ -17,6 +17,7 @@ import { getDeployments, getProjects, getServices } from "./services/api";
 
 import Projects from "./pages/Projects";
 import Services from "./pages/Services";
+import Deployments from "./pages/Deployments";
 
 function App() {
   const [projects, setProjects] = useState([]);
@@ -108,6 +109,7 @@ function App() {
   const isDashboard = activePage === "dashboard";
   const isProjects = activePage === "projects";
   const isServices = activePage === "services";
+  const isDeployments = activePage === "deployments";
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -251,6 +253,10 @@ function App() {
           ) : isServices ? (
             <section className="p-6">
               <Services />
+            </section>
+          ) : isDeployments ? (
+            <section className="p-6">
+              <Deployments />
             </section>
           ) : (
             /* Dashboard and Placeholder Pages */
