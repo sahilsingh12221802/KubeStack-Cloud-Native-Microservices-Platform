@@ -18,6 +18,7 @@ function Deployments() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [selectedDeployment, setSelectedDeployment] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -268,9 +269,18 @@ function Deployments() {
               )}
 
               {/* Footer */}
-              <div className="mt-5 flex items-center gap-2 border-t border-slate-800 pt-4 text-xs text-slate-500">
-                <CheckCircle2 size={14} className="text-cyan-400" />
-                Deployment record #{deployment.id}
+              <div className="mt-5 flex items-center justify-between gap-3 border-t border-slate-800 pt-4">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <CheckCircle2 size={14} className="text-cyan-400" />
+                  Deployment #{deployment.id}
+                </div>
+
+                <button
+                  onClick={() => setSelectedDeployment(deployment)}
+                  className="rounded-lg border border-cyan-500/30 px-3 py-1.5 text-xs font-medium text-cyan-400 transition hover:bg-cyan-500/10"
+                >
+                  View Details
+                </button>
               </div>
             </div>
           ))}
@@ -450,6 +460,109 @@ function Deployments() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Deployment Details Modal */}
+      {selectedDeployment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+            {/* Modal Header */}
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-cyan-400">
+                  Deployment Details
+                </p>
+
+                <h3 className="mt-1 text-xl font-semibold">
+                  {getServiceName(selectedDeployment.service_id)}
+                </h3>
+
+                <p className="mt-1 text-sm text-slate-400">
+                  Deployment #{selectedDeployment.id}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setSelectedDeployment(null)}
+                className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Status */}
+            <div className="mb-6 flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+              <span className="text-sm text-slate-400">Current Status</span>
+
+              <span
+                className={`rounded-full border px-3 py-1 text-sm capitalize ${getStatusStyle(
+                  selectedDeployment.status,
+                )}`}
+              >
+                {formatStatus(selectedDeployment.status)}
+              </span>
+            </div>
+
+            {/* Deployment Information */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+                <p className="text-xs text-slate-500">Version</p>
+                <p className="mt-1 font-medium text-slate-200">
+                  {selectedDeployment.version || "—"}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+                <p className="text-xs text-slate-500">Environment</p>
+                <p className="mt-1 font-medium capitalize text-slate-200">
+                  {selectedDeployment.environment || "—"}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+                <p className="text-xs text-slate-500">Service ID</p>
+                <p className="mt-1 font-medium text-slate-200">
+                  {selectedDeployment.service_id || "—"}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+                <p className="text-xs text-slate-500">Deployed By</p>
+                <p className="mt-1 font-medium text-slate-200">
+                  {selectedDeployment.deployed_by || "—"}
+                </p>
+              </div>
+            </div>
+
+            {/* Image */}
+            <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+              <p className="text-xs text-slate-500">Docker Image</p>
+              <p className="mt-1 break-all font-mono text-sm text-cyan-300">
+                {selectedDeployment.image_tag || "—"}
+              </p>
+            </div>
+
+            {/* Logs */}
+            <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">
+                Deployment Logs
+              </p>
+
+              <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-slate-300">
+                {selectedDeployment.logs || "No deployment logs available."}
+              </pre>
+            </div>
+
+            {/* Close */}
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setSelectedDeployment(null)}
+                className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-300 transition hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
