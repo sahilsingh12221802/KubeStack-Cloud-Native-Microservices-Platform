@@ -4,15 +4,12 @@ import {
   Code2,
   Loader2,
   Plus,
+  RefreshCw,
   Server,
   X,
 } from "lucide-react";
 
-import {
-  createDeployment,
-  getDeployments,
-  getServices,
-} from "../services/api";
+import { createDeployment, getDeployments, getServices } from "../services/api";
 
 function Deployments() {
   const [deployments, setDeployments] = useState([]);
@@ -55,8 +52,13 @@ function Deployments() {
 
   useEffect(() => {
     loadData();
-  }, []);
 
+    const interval = setInterval(() => {
+      loadData();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
   const handleChange = (event) => {
     const { name, value } = event.target;
 
@@ -94,8 +96,7 @@ function Deployments() {
       console.error(err);
 
       setError(
-        err.response?.data?.detail ||
-          "Unable to create the deployment."
+        err.response?.data?.detail || "Unable to create the deployment.",
       );
     } finally {
       setSubmitting(false);
@@ -103,34 +104,26 @@ function Deployments() {
   };
 
   const getServiceName = (serviceId) => {
-    const service = services.find(
-      (item) => item.id === serviceId
-    );
+    const service = services.find((item) => item.id === serviceId);
 
     return service?.name || `Service #${serviceId}`;
   };
 
   const getStatusStyle = (status) => {
     const styles = {
-      pending:
-        "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+      pending: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
 
-      in_progress:
-        "bg-blue-500/10 text-blue-400 border-blue-500/20",
+      in_progress: "bg-blue-500/10 text-blue-400 border-blue-500/20",
 
-      successful:
-        "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+      successful: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
 
-      failed:
-        "bg-red-500/10 text-red-400 border-red-500/20",
+      failed: "bg-red-500/10 text-red-400 border-red-500/20",
 
-      rolled_back:
-        "bg-purple-500/10 text-purple-400 border-purple-500/20",
+      rolled_back: "bg-purple-500/10 text-purple-400 border-purple-500/20",
     };
 
     return (
-      styles[status] ||
-      "bg-slate-500/10 text-slate-400 border-slate-500/20"
+      styles[status] || "bg-slate-500/10 text-slate-400 border-slate-500/20"
     );
   };
 
@@ -143,22 +136,30 @@ function Deployments() {
       {/* Page Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold">
-            Deployments
-          </h2>
+          <h2 className="text-2xl font-bold">Deployments</h2>
 
           <p className="mt-1 text-sm text-slate-400">
             Manage application deployments across environments.
           </p>
         </div>
 
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400"
-        >
-          <Plus size={17} />
-          Create Deployment
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={loadData}
+            className="flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800"
+          >
+            <RefreshCw size={17} />
+            Refresh
+          </button>
+
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400"
+          >
+            <Plus size={17} />
+            Create Deployment
+          </button>
+        </div>
       </div>
 
       {/* Error */}
@@ -171,22 +172,14 @@ function Deployments() {
       {/* Deployment List */}
       {loading ? (
         <div className="flex items-center gap-2 text-slate-400">
-          <Loader2
-            size={18}
-            className="animate-spin"
-          />
+          <Loader2 size={18} className="animate-spin" />
           Loading deployments...
         </div>
       ) : deployments.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-10 text-center">
-          <Code2
-            size={40}
-            className="mx-auto mb-4 text-slate-600"
-          />
+          <Code2 size={40} className="mx-auto mb-4 text-slate-600" />
 
-          <h3 className="font-semibold">
-            No deployments found
-          </h3>
+          <h3 className="font-semibold">No deployments found</h3>
 
           <p className="mt-2 text-sm text-slate-400">
             Create your first deployment to get started.
@@ -219,7 +212,7 @@ function Deployments() {
 
                 <span
                   className={`rounded-full border px-2.5 py-1 text-xs capitalize ${getStatusStyle(
-                    deployment.status
+                    deployment.status,
                   )}`}
                 >
                   {formatStatus(deployment.status)}
@@ -229,9 +222,7 @@ function Deployments() {
               {/* Deployment Details */}
               <div className="mt-5 space-y-3 text-sm">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-slate-500">
-                    Version
-                  </span>
+                  <span className="text-slate-500">Version</span>
 
                   <span className="text-slate-200">
                     {deployment.version || "—"}
@@ -239,9 +230,7 @@ function Deployments() {
                 </div>
 
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-slate-500">
-                    Environment
-                  </span>
+                  <span className="text-slate-500">Environment</span>
 
                   <span className="capitalize text-slate-200">
                     {deployment.environment || "—"}
@@ -249,9 +238,7 @@ function Deployments() {
                 </div>
 
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-slate-500">
-                    Deployed By
-                  </span>
+                  <span className="text-slate-500">Deployed By</span>
 
                   <span className="text-slate-200">
                     {deployment.deployed_by || "—"}
@@ -259,9 +246,7 @@ function Deployments() {
                 </div>
 
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-slate-500">
-                    Image Tag
-                  </span>
+                  <span className="text-slate-500">Image Tag</span>
 
                   <span className="max-w-[190px] truncate text-right text-slate-200">
                     {deployment.image_tag || "—"}
@@ -299,9 +284,7 @@ function Deployments() {
             {/* Modal Header */}
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-semibold">
-                  Create Deployment
-                </h3>
+                <h3 className="text-xl font-semibold">Create Deployment</h3>
 
                 <p className="mt-1 text-sm text-slate-400">
                   Create a deployment record for a service.
@@ -316,10 +299,7 @@ function Deployments() {
               </button>
             </div>
 
-            <form
-              onSubmit={handleSubmit}
-              className="space-y-4"
-            >
+            <form onSubmit={handleSubmit} className="space-y-4">
               {/* Service */}
               <div>
                 <label className="mb-1.5 block text-sm text-slate-300">
@@ -333,15 +313,10 @@ function Deployments() {
                   onChange={handleChange}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm outline-none transition focus:border-cyan-400"
                 >
-                  <option value="">
-                    Select a service
-                  </option>
+                  <option value="">Select a service</option>
 
                   {services.map((service) => (
-                    <option
-                      key={service.id}
-                      value={service.id}
-                    >
+                    <option key={service.id} value={service.id}>
                       {service.name}
                     </option>
                   ))}
@@ -376,17 +351,11 @@ function Deployments() {
                   onChange={handleChange}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm outline-none transition focus:border-cyan-400"
                 >
-                  <option value="development">
-                    Development
-                  </option>
+                  <option value="development">Development</option>
 
-                  <option value="staging">
-                    Staging
-                  </option>
+                  <option value="staging">Staging</option>
 
-                  <option value="production">
-                    Production
-                  </option>
+                  <option value="production">Production</option>
                 </select>
               </div>
 
@@ -402,25 +371,15 @@ function Deployments() {
                   onChange={handleChange}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm outline-none transition focus:border-cyan-400"
                 >
-                  <option value="pending">
-                    Pending
-                  </option>
+                  <option value="pending">Pending</option>
 
-                  <option value="in_progress">
-                    In Progress
-                  </option>
+                  <option value="in_progress">In Progress</option>
 
-                  <option value="successful">
-                    Successful
-                  </option>
+                  <option value="successful">Successful</option>
 
-                  <option value="failed">
-                    Failed
-                  </option>
+                  <option value="failed">Failed</option>
 
-                  <option value="rolled_back">
-                    Rolled Back
-                  </option>
+                  <option value="rolled_back">Rolled Back</option>
                 </select>
               </div>
 
@@ -485,16 +444,9 @@ function Deployments() {
                   disabled={submitting}
                   className="flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {submitting && (
-                    <Loader2
-                      size={16}
-                      className="animate-spin"
-                    />
-                  )}
+                  {submitting && <Loader2 size={16} className="animate-spin" />}
 
-                  {submitting
-                    ? "Creating..."
-                    : "Create Deployment"}
+                  {submitting ? "Creating..." : "Create Deployment"}
                 </button>
               </div>
             </form>
