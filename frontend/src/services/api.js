@@ -22,4 +22,9 @@ export const getDeployments = async () => {
   return response.data;
 };
 
+export const createProject = async (projectData) => {
+  const response = await api.post("/api/projects", projectData);
+  return response.data;
+};
+
 export default api;
