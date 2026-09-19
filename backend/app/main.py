@@ -8,6 +8,7 @@ from app.models.project import Project
 from app.api.projects import router as projects_router
 from app.api.services import router as services_router
 from app.api.deployments import router as deployments_router
+from app.api.monitoring import router as monitoring_router
 from app.models.service import Service
 from app.models.deployment import Deployment
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,6 +40,7 @@ app.add_middleware(
 app.include_router(projects_router)
 app.include_router(services_router)
 app.include_router(deployments_router)
+app.include_router(monitoring_router)
 
 @app.get("/")
 def root():

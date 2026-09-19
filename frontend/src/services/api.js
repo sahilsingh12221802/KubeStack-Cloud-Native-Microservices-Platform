@@ -42,4 +42,9 @@ export const scaleDeployment = async (deploymentId, replicas) => {
   return response.data;
 };
 
+export const getInfrastructureMetrics = async () => {
+  const response = await api.get("/api/monitoring/metrics");
+  return response.data;
+}
+
 export default api;
