@@ -21,6 +21,15 @@ rules:
       - get
       - watch
 
+
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs:
+      - get
+      - list
+      - watch
+
+
   - apiGroups: [""]
     resources: ["pods"]
     verbs:

@@ -9,7 +9,13 @@ import {
   X,
 } from "lucide-react";
 
-import { createDeployment, getDeployments, getServices, scaleDeployment } from "../services/api";
+import {
+  createDeployment,
+  getDeployments,
+  getServices,
+  scaleDeployment,
+  rollbackDeployment,
+} from "../services/api";
 
 function Deployments() {
   const [deployments, setDeployments] = useState([]);
@@ -27,6 +33,8 @@ function Deployments() {
   const [scaleDeploymentTarget, setScaleDeploymentTarget] = useState(null);
   const [scaleReplicas, setScaleReplicas] = useState(1);
   const [scaling, setScaling] = useState(false);
+  const [rollingBack, setRollingBack] = useState(false);
+  const [rollbackTarget, setRollbackTarget] = useState(null);
 
   const [formData, setFormData] = useState({
     service_id: "",
@@ -114,11 +122,11 @@ function Deployments() {
   const handleScale = async (event) => {
     event.preventDefault();
 
-    if(!scaleDeploymentTarget) {
+    if (!scaleDeploymentTarget) {
       return;
     }
 
-    try{
+    try {
       setScaling(true);
       setError("");
 
@@ -129,16 +137,48 @@ function Deployments() {
 
       await loadData();
 
-      if(selectedDeployment?.id === scaleDeploymentTarget.id){
+      if (selectedDeployment?.id === scaleDeploymentTarget.id) {
         await loadLiveDetails(scaleDeploymentTarget.id);
       }
     } catch (err) {
       console.error(err);
-      setError(
-        err.response?.data?.detail || "Unable to scale the deployment.",
-      );
+      setError(err.response?.data?.detail || "Unable to scale the deployment.");
     } finally {
       setScaling(false);
+    }
+  };
+
+  const handleRollback = async (deployment) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to rollback Deployment #${deployment.id} (${getServiceName(
+        deployment.service_id,
+      )})?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setRollingBack(true);
+      setRollbackTarget(deployment.id);
+      setError("");
+
+      await rollbackDeployment(deployment.id);
+
+      await loadData();
+
+      if (selectedDeployment?.id === deployment.id) {
+        await loadLiveDetails(deployment.id);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(
+        err.response?.data?.detail || "Unable to rollback the deployment.",
+      );
+    } finally {
+      setRollingBack(false);
+      setRollbackTarget(null);
     }
   };
 
@@ -336,24 +376,39 @@ function Deployments() {
 
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={() => handleRollback(deployment)}
+                    disabled={rollingBack}
+                    className="flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-medium text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {rollingBack && rollbackTarget === deployment.id ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        Rolling Back...
+                      </>
+                    ) : (
+                      "Rollback"
+                    )}
+                  </button>
+                  <button
                     onClick={async () => {
                       setScaleDeploymentTarget(deployment);
                       setScaleReplicas(1);
                       setShowScaleModal(true);
 
-                      try{
+                      try {
                         const response = await fetch(
-                          `/api/deployments/${deployment.id}/details`
+                          `/api/deployments/${deployment.id}/details`,
                         );
-                        if(response.ok){
+                        if (response.ok) {
                           const data = await response.json();
 
-                          setScaleReplicas(
-                            data.kubernetes?.replicas ?? 1
-                          );
+                          setScaleReplicas(data.kubernetes?.replicas ?? 1);
                         }
                       } catch (error) {
-                        console.error("Error fetching deployment details:", error);
+                        console.error(
+                          "Error fetching deployment details:",
+                          error,
+                        );
                       }
                     }}
                     className="rounded-lg border border-purple-500/30 px-3 py-1.5 text-xs font-medium text-purple-400 transition hover:bg-purple-500/10"
@@ -367,7 +422,7 @@ function Deployments() {
                     loadLiveDetails(deployment.id);
                   }}
                   className="rounded-lg border border-cyan-500/30 px-3 py-1.5 text-xs font-medium text-cyan-400 transition hover:bg-cyan-500/10"
-                  >
+                >
                   View Details
                 </button>
               </div>
@@ -850,9 +905,7 @@ function Deployments() {
                   max="10"
                   required
                   value={scaleReplicas}
-                  onChange={(event) =>
-                    setScaleReplicas(event.target.value)
-                  }
+                  onChange={(event) => setScaleReplicas(event.target.value)}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm outline-none transition focus:border-purple-400"
                 />
 
@@ -879,9 +932,7 @@ function Deployments() {
                   disabled={scaling}
                   className="flex items-center gap-2 rounded-lg bg-purple-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {scaling && (
-                    <Loader2 size={16} className="animate-spin" />
-                  )}
+                  {scaling && <Loader2 size={16} className="animate-spin" />}
 
                   {scaling ? "Scaling..." : "Scale Deployment"}
                 </button>

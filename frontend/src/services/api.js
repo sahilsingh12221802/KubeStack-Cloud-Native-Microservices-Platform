@@ -47,4 +47,9 @@ export const getInfrastructureMetrics = async () => {
   return response.data;
 }
 
+export const rollbackDeployment = async (deploymentId) => {
+  const response = await api.post(`/api/deployments/${deploymentId}/rollback`);
+  return response.data;
+}
+
 export default api;

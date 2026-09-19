@@ -577,3 +577,164 @@ def scale_deployment(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Kubernetes API error: {error.reason}",
         )
+        
+    
+    
+        
+@router.post("/{deployment_id}/rollback")
+def rollback_deployment(
+    deployment_id: int,
+    db: Session = Depends(get_db),
+):
+    deployment = (
+        db.query(Deployment)
+        .filter(Deployment.id == deployment_id)
+        .first()
+    )
+
+    if not deployment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Deployment not found",
+        )
+
+    service = (
+        db.query(Service)
+        .filter(Service.id == deployment.service_id)
+        .first()
+    )
+
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service not found",
+        )
+
+    deployment_name = get_deployment_name(service, deployment)
+
+    apps_api = get_kubernetes_apps_api()
+
+    try:
+        current_deployment = apps_api.read_namespaced_deployment(
+            name=deployment_name,
+            namespace=KUBERNETES_NAMESPACE,
+        )
+
+        current_revision = (
+            current_deployment.metadata.annotations or {}
+        ).get("deployment.kubernetes.io/revision")
+
+        if not current_revision:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Deployment revision information is unavailable.",
+            )
+
+        current_revision_number = int(current_revision)
+
+        if current_revision_number <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No previous deployment revision is available for rollback.",
+            )
+
+        target_revision = None
+
+        replica_sets = apps_api.list_namespaced_replica_set(
+            namespace=KUBERNETES_NAMESPACE,
+            label_selector="app=" + deployment_name,
+        )
+
+        previous_replica_set = None
+
+        available_revisions = []
+
+        for replica_set in replica_sets.items:
+            revision = (
+                replica_set.metadata.annotations or {}
+            ).get("deployment.kubernetes.io/revision")
+
+            if revision and int(revision) < current_revision_number:
+                available_revisions.append((int(revision), replica_set))
+
+        if available_revisions:
+            target_revision, previous_replica_set = max(
+                available_revisions,
+                key=lambda item: item[0],
+            )
+
+        if previous_replica_set is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Previous deployment revision "
+                    f"{target_revision} could not be found."
+                ),
+            )
+
+        previous_template = previous_replica_set.spec.template
+
+        current_deployment.spec.template = previous_template
+
+        updated_deployment = apps_api.replace_namespaced_deployment(
+            name=deployment_name,
+            namespace=KUBERNETES_NAMESPACE,
+            body=current_deployment,
+        )
+
+        deployment.status = "in_progress"
+        deployment.logs = (
+            f"Rollback initiated from revision "
+            f"{current_revision_number} to revision "
+            f"{target_revision}."
+        )
+
+        db.commit()
+        db.refresh(deployment)
+
+        is_ready = wait_for_deployment_ready(deployment_name)
+
+        if is_ready:
+            deployment.status = "successful"
+            deployment.logs = (
+                f"Deployment rolled back successfully from "
+                f"revision {current_revision_number} to "
+                f"revision {target_revision}."
+            )
+        else:
+            deployment.status = "failed"
+            deployment.logs = (
+                f"Rollback was initiated from revision "
+                f"{current_revision_number} to "
+                f"{target_revision}, but the deployment did not "
+                f"become ready within {ROLLOUT_TIMEOUT_SECONDS} seconds."
+            )
+
+        db.commit()
+        db.refresh(deployment)
+
+        return {
+            "message": (
+                "Deployment rollback completed"
+                if is_ready
+                else "Deployment rollback initiated but not ready"
+            ),
+            "deployment_id": deployment.id,
+            "deployment_name": deployment_name,
+            "previous_revision": current_revision_number,
+            "rollback_revision": target_revision,
+            "status": deployment.status,
+            "kubernetes_generation": (
+                updated_deployment.metadata.generation or 0
+            ),
+        }
+
+    except ApiException as error:
+        deployment.status = "failed"
+        deployment.logs = f"Kubernetes rollback error: {error.reason}"
+        db.commit()
+
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Kubernetes API error: {error.reason}",
+        )
