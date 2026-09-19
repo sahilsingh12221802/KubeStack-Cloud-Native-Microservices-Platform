@@ -12,6 +12,7 @@ from app.models.service import Service
 from app.schemas.deployment import (
     DeploymentCreate,
     DeploymentResponse,
+    DeploymentScale,
     DeploymentUpdate,
 )
 
@@ -502,3 +503,77 @@ def delete_deployment(
     db.commit()
 
     return None
+
+
+
+@router.post("/{deployment_id}/scale")
+def scale_deployment(
+    deployment_id: int,
+    scale_data: DeploymentScale,
+    db: Session = Depends(get_db),
+):
+    deployment = (
+        db.query(Deployment)
+        .filter(Deployment.id == deployment_id)
+        .first()
+    )
+
+    if not deployment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Deployment not found",
+        )
+
+    service = (
+        db.query(Service)
+        .filter(Service.id == deployment.service_id)
+        .first()
+    )
+
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service not found",
+        )
+
+    deployment_name = get_deployment_name(service, deployment)
+
+    apps_api = get_kubernetes_apps_api()
+
+    try:
+        kubernetes_deployment = apps_api.read_namespaced_deployment(
+            name=deployment_name,
+            namespace=KUBERNETES_NAMESPACE,
+        )
+
+        kubernetes_deployment.spec.replicas = scale_data.replicas
+
+        updated_deployment = apps_api.replace_namespaced_deployment(
+            name=deployment_name,
+            namespace=KUBERNETES_NAMESPACE,
+            body=kubernetes_deployment,
+        )
+
+        deployment.logs = (
+            f"Kubernetes Deployment scaled to "
+            f"{scale_data.replicas} replicas."
+        )
+
+        db.commit()
+        db.refresh(deployment)
+
+        return {
+            "message": "Deployment scaled successfully",
+            "deployment_id": deployment.id,
+            "deployment_name": deployment_name,
+            "requested_replicas": scale_data.replicas,
+            "kubernetes_replicas": (
+                updated_deployment.spec.replicas or 0
+            ),
+        }
+
+    except ApiException as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Kubernetes API error: {error.reason}",
+        )

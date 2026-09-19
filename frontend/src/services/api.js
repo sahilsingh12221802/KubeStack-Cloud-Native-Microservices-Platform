@@ -34,4 +34,12 @@ export const createDeployment = async (deploymentData) => {
   return response.data;
 };
 
+export const scaleDeployment = async (deploymentId, replicas) => {
+  const response = await api.post(
+    `/api/deployments/${deploymentId}/scale`,
+    { replicas }
+  );
+  return response.data;
+};
+
 export default api;

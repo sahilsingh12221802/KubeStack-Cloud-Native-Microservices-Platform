@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 DeploymentStatus = Literal[
@@ -35,6 +35,9 @@ class DeploymentUpdate(BaseModel):
     deployed_by: str | None = None
     logs: str | None = None
 
+
+class DeploymentScale(BaseModel):
+    replicas: int = Field(..., ge=1, le=10)
 
 class DeploymentResponse(DeploymentBase):
     id: int
