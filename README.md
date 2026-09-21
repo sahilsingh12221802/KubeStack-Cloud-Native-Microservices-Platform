@@ -136,13 +136,13 @@ A more detailed component-level diagram — covering the frontend module tree, b
 
 The KubeStack dashboard is the primary entry point — a centralized interface across Projects, Services, Deployments, and Monitoring.
 
-![Platform Dashboard](docs/screenshots/01-platform-dashboard.png)
+![Platform Dashboard](docs/01-platform-dashboard.png)
 
 ### 📦 Deployment Management
 
 Every deployment tracks its service, environment, version, status, and live replica count — all manageable through the UI instead of raw `kubectl` commands.
 
-![Deployment Details](docs/screenshots/02-deployment-details.png)
+![Deployment Details](docs/02-deployment-details.png)
 
 **Scaling API**
 
@@ -157,7 +157,7 @@ POST /api/deployments/{deployment_id}/scale
 
 Pods for the latest deployment, confirming successful scheduling across the `kubestack` namespace.
 
-![Deployment Pods](docs/screenshots/03-deployment-pods.png)
+![Deployment Pods](docs/03-deployment-pods.png)
 
 **Cluster verification**
 
@@ -167,7 +167,7 @@ kubectl get svc -n kubestack
 kubectl get nodes
 ```
 
-![Kubernetes CLI Verification](docs/screenshots/06-kubectl-verification.png)
+![Kubernetes CLI Verification](docs/06-kubectl-verification.png)
 
 ### Deployment Rollback
 
@@ -242,19 +242,19 @@ helm history kubestack -n kubestack
 helm rollback kubestack -n kubestack
 ```
 
-![Helm Release History](docs/screenshots/07-helm-history.png)
+![Helm Release History](docs/07-helm-history.png)
 
 ### 🐳 Containerization
 
 Backend and frontend are independently containerized (`kubestack-backend`, `kubestack-frontend`), with Docker Compose used for local development.
 
-![Docker Desktop](docs/screenshots/08-docker-desktop.png)
+![Docker Desktop](docs/08-docker-desktop.png)
 
 ### Backend API
 
 Interactive API documentation is auto-generated via FastAPI's Swagger UI at `/docs`.
 
-![Swagger UI](docs/screenshots/09-swagger-ui.png)
+![Swagger UI](docs/09-swagger-ui.png)
 
 **Health endpoints**
 
@@ -272,15 +272,15 @@ GET /health/database
 
 The frontend's Monitoring page surfaces CPU usage, memory usage, pod restarts, and replica availability — powered by Prometheus — without requiring direct cluster access.
 
-![Monitoring — Part 1](docs/screenshots/04-monitoring-part1.png)
-![Monitoring — Part 2](docs/screenshots/05-monitoring-part2.png)
+![Monitoring — Part 1](docs/04-monitoring-part1.png)
+![Monitoring — Part 2](docs/05-monitoring-part2.png)
 
 **Grafana dashboards**
 
-![Grafana — System Overview](docs/screenshots/10-grafana-system-overview.png)
-![Grafana — Containers](docs/screenshots/11-grafana-containers.png)
-![Grafana — Containers](docs/screenshots/12-grafana-containers2.png)
-![Grafana — Monitoring Stack](docs/screenshots/13-grafana-monitoring-stack.png)
+![Grafana — System Overview](docs/10-grafana-system-overview.png)
+![Grafana — Containers](docs/11-grafana-containers.png)
+![Grafana — Containers](docs/12-grafana-containers2.png)
+![Grafana — Monitoring Stack](docs/13-grafana-monitoring-stack.png)
 
 ### ☁️ AWS Deployment
 
@@ -295,7 +295,7 @@ kubestack-frontend
 Git Commit → Commit SHA → Docker Image Tag → ECR → Kubernetes Deployment
 ```
 
-![AWS ECR](docs/screenshots/14-aws-ecr.png)
+![AWS ECR](docs/14-aws-ecr.png)
 
 The application was deployed to a single-node Kubernetes control-plane on **AWS EC2** (`ap-south-1`), provisioned entirely via **Terraform**, and exposed externally on **NodePort `30517`**.
 
@@ -323,7 +323,7 @@ flowchart TD
     L -->|Failure| N[⏪ Helm Rollback]
 ```
 
-![GitHub Actions CI/CD](docs/screenshots/15-github-actions.png)
+![GitHub Actions CI/CD](docs/15-github-actions.png)
 
 **Keyless cloud authentication**
 
