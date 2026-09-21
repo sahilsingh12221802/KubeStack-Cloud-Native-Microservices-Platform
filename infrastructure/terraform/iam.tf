@@ -71,7 +71,7 @@ resource "aws_iam_role" "github_actions" {
           }
 
           StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:sahilsingh12221802/KubeStack-Cloud-Native-Microservices-Platform:ref:refs/heads/main"
+            "token.actions.githubusercontent.com:sub" = "repo:sahilsingh12221802@114878612/KubeStack-Cloud-Native-Microservices-Platform@1371460416:ref:refs/heads/main"
           }
         }
       }
