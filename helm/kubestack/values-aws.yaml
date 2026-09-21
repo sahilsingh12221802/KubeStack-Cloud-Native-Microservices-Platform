@@ -1,0 +1,45 @@
+namespace: kubestack
+
+imagePullSecrets:
+  - name: ecr-registry-secret
+
+backend:
+  replicaCount: 1
+  image:
+    repository: 478982786478.dkr.ecr.ap-south-1.amazonaws.com/kubestack-backend
+    tag: v11
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+  existingSecret: kubestack-postgres-aws
+
+frontend:
+  replicaCount: 1
+  image:
+    repository: 478982786478.dkr.ecr.ap-south-1.amazonaws.com/kubestack-frontend
+    tag: v10
+    pullPolicy: IfNotPresent
+  service:
+    type: NodePort
+    port: 80
+    targetPort: 80
+
+postgres:
+  replicaCount: 1
+  image:
+    repository: postgres
+    tag: "16"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5432
+    targetPort: 5432
+  database: kubestack
+  username: kubestack
+  existingSecret: kubestack-postgres-aws
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 1Gi
