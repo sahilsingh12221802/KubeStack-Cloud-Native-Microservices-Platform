@@ -1,0 +1,14 @@
+backend:
+  image:
+    repository: kubestack-backend
+    tag: v9
+
+frontend:
+  image:
+    repository: kubestack-frontend
+    tag: v9
+
+postgres:
+  image:
+    repository: postgres
+    tag: "16"

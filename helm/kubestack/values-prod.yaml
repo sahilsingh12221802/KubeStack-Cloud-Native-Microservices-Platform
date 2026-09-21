@@ -1,0 +1,42 @@
+namespace: kubestack
+
+backend:
+  replicaCount: 2
+  existingSecret: kubestack-postgres-production
+  image:
+    repository: kubestack-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+
+frontend:
+  replicaCount: 2
+  image:
+    repository: kubestack-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: NodePort
+    port: 80
+    targetPort: 80
+
+postgres:
+  replicaCount: 1
+  image:
+    repository: postgres
+    tag: "16"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5432
+    targetPort: 5432
+  database: kubestack
+  username: kubestack
+  existingSecret: kubestack-postgres-production
+  persistence:
+    enabled: true
+    accessMode: ReadWriteOnce
+    size: 5Gi
