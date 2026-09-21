@@ -15,8 +15,8 @@ env:
   ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
 
 jobs:
-  build-and-push:
-    name: Build and Push Images
+  build-and-deploy:
+    name: Build, Push and Deploy
     runs-on: ubuntu-latest
 
     steps:
@@ -34,7 +34,8 @@ jobs:
 
       - name: Set image tag
         id: image
-        run: echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Build backend image
         run: |
@@ -57,3 +58,107 @@ jobs:
         run: |
           docker push \
             $ECR_REGISTRY/kubestack-frontend:${{ steps.image.outputs.tag }}
+
+      - name: Deploy to Kubernetes
+        id: deploy
+        env:
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+          EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+
+          printf '%s\n' "$EC2_SSH_PRIVATE_KEY" > ~/.ssh/kubestack-ec2.pem
+          chmod 600 ~/.ssh/kubestack-ec2.pem
+
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+
+          PREVIOUS_REV=$(ssh -i ~/.ssh/kubestack-ec2.pem \
+            "$EC2_USER@$EC2_HOST" \
+            "helm history kubestack -n kubestack -o json | python3 -c 'import sys,json; h=json.load(sys.stdin); print(max(int(x[\"revision\"]) for x in h))'")
+
+          echo "Previous Helm revision: $PREVIOUS_REV"
+
+          echo "previous_revision=$PREVIOUS_REV" >> "$GITHUB_OUTPUT"
+
+          ssh -i ~/.ssh/kubestack-ec2.pem \
+            "$EC2_USER@$EC2_HOST" \
+            "helm upgrade kubestack ~/kubestack \
+              -n kubestack \
+              -f ~/kubestack/values-aws.yaml \
+              --set backend.image.tag=$IMAGE_TAG \
+              --set frontend.image.tag=$IMAGE_TAG \
+              --wait \
+              --timeout 5m"
+
+      - name: Verify Kubernetes rollout
+        id: rollout
+        env:
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+        run: |
+          set -euo pipefail
+
+          ssh -i ~/.ssh/kubestack-ec2.pem \
+            "$EC2_USER@$EC2_HOST" \
+            "kubectl rollout status deployment/backend \
+              -n kubestack \
+              --timeout=120s"
+
+          ssh -i ~/.ssh/kubestack-ec2.pem \
+            "$EC2_USER@$EC2_HOST" \
+            "kubectl rollout status deployment/frontend \
+              -n kubestack \
+              --timeout=120s"
+
+      - name: Verify application health
+        id: health
+        env:
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+        run: |
+          set -euo pipefail
+
+          ssh -i ~/.ssh/kubestack-ec2.pem \
+            "$EC2_USER@$EC2_HOST" \
+            "kubectl run ci-health-check \
+              --rm \
+              -i \
+              --restart=Never \
+              --image=curlimages/curl:8.10.1 \
+              -n kubestack \
+              -- curl -fsS http://backend:8000/health"
+
+      - name: Rollback deployment
+        if: failure() && steps.deploy.outcome == 'success'
+        env:
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+          PREVIOUS_REVISION: ${{ steps.deploy.outputs.previous_revision }}
+        run: |
+          set -euo pipefail
+
+          echo "Deployment verification failed."
+          echo "Rolling back to Helm revision: $PREVIOUS_REVISION"
+
+          ssh -i ~/.ssh/kubestack-ec2.pem \
+            "$EC2_USER@$EC2_HOST" \
+            "helm rollback kubestack $PREVIOUS_REVISION \
+              -n kubestack \
+              --wait \
+              --timeout 5m"
+
+          ssh -i ~/.ssh/kubestack-ec2.pem \
+            "$EC2_USER@$EC2_HOST" \
+            "kubectl rollout status deployment/backend \
+              -n kubestack \
+              --timeout=120s"
+
+          ssh -i ~/.ssh/kubestack-ec2.pem \
+            "$EC2_USER@$EC2_HOST" \
+            "kubectl rollout status deployment/frontend \
+              -n kubestack \
+              --timeout=120s"
